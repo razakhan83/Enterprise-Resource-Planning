@@ -58,8 +58,8 @@ export default function PurchasesPage() {
   const [items, setItems] = useState<LineItemState[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [unitType, setUnitType] = useState<"PARENT" | "CHILD">("PARENT");
-  const [qty, setQty] = useState<number>(10);
-  const [purchaseRate, setPurchaseRate] = useState<string>("320.00");
+  const [qty, setQty] = useState<number>(1);
+  const [purchaseRate, setPurchaseRate] = useState<string>("");
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -74,9 +74,6 @@ export default function PurchasesPage() {
     }
     if (data.warehouses && data.warehouses[0] && !selectedWarehouseId) {
       setSelectedWarehouseId(data.warehouses[0].id);
-    }
-    if (data.products && data.products[0] && !selectedProductId) {
-      setSelectedProductId(data.products[0].id);
     }
   };
 
@@ -311,7 +308,10 @@ export default function PurchasesPage() {
                   <ProductCombobox
                     products={products}
                     selectedProductId={selectedProductId}
-                    onSelectProduct={(p) => setSelectedProductId(p ? p.id : null)}
+                    onSelectProduct={(p) => {
+                      setSelectedProductId(p ? p.id : null);
+                      setPurchaseRate(""); // Never auto-fill sale price; inward rate must be explicit
+                    }}
                   />
                 </div>
 
@@ -346,7 +346,9 @@ export default function PurchasesPage() {
 
                 {/* Quantity (Col 2) */}
                 <div className="col-span-2">
-                  <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">Qty</span>
+                  <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">
+                    Qty ({unitType === "PARENT" ? (selectedProduct?.parentUnit || "Carton") : (selectedProduct?.childUnit || "Piece")})
+                  </span>
                   <Input
                     type="number"
                     min="1"
@@ -359,11 +361,23 @@ export default function PurchasesPage() {
 
                 {/* Purchase Rate (Col 2) */}
                 <div className="col-span-2">
-                  <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">Rate (Rs.)</span>
+                  <div className="flex justify-between items-center mb-0.5">
+                    <span className="text-[10px] text-zinc-600 font-semibold truncate">
+                      Purchase Rate (Rs.)
+                    </span>
+                    <span className="text-[10px] font-mono font-medium text-zinc-500">
+                      /{unitType === "PARENT" ? (selectedProduct?.parentUnit || "Carton") : (selectedProduct?.childUnit || "Piece")}
+                    </span>
+                  </div>
                   <Input
                     type="number"
                     step="0.01"
-                    placeholder="Rate Rs."
+                    min="0.01"
+                    placeholder={
+                      unitType === "PARENT"
+                        ? `Rate / ${selectedProduct?.parentUnit || "Carton"}`
+                        : `Rate / ${selectedProduct?.childUnit || "Piece"}`
+                    }
                     value={purchaseRate}
                     onChange={(e) => setPurchaseRate(e.target.value)}
                     className="h-9 text-right font-mono text-xs font-semibold"
@@ -375,12 +389,45 @@ export default function PurchasesPage() {
                   <Button
                     type="button"
                     onClick={handleAddItem}
+                    disabled={!selectedProduct || !purchaseRate || Number(purchaseRate) <= 0 || qty <= 0}
                     className="w-full h-9 font-bold text-xs bg-zinc-900 text-white hover:bg-zinc-800"
                   >
                     <Plus className="h-3.5 w-3.5 mr-0.5" /> Add
                   </Button>
                 </div>
               </div>
+
+              {/* LIVE INWARD COST & PACKAGING CONVERSION HELPER STRIP */}
+              {selectedProduct && (
+                <div className="mt-2.5 pt-2 border-t border-zinc-100 flex items-center justify-between text-xs font-mono text-zinc-600">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-zinc-500">Packaging:</span>
+                    <span className="font-semibold text-zinc-800">
+                      1 {selectedProduct.parentUnit} = {selectedProduct.conversionRate} {selectedProduct.childUnit}s
+                    </span>
+                    {purchaseRate && Number(purchaseRate) > 0 && (
+                      <>
+                        <span className="text-zinc-300">•</span>
+                        <span className="text-zinc-500">Inward Cost per {selectedProduct.childUnit}:</span>
+                        <span className="font-bold text-zinc-900">
+                          Rs. {unitType === "PARENT"
+                            ? (Number(purchaseRate) / (selectedProduct.conversionRate || 1)).toFixed(2)
+                            : Number(purchaseRate).toFixed(2)}
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {purchaseRate && Number(purchaseRate) > 0 && qty > 0 && (
+                    <div>
+                      <span className="text-zinc-500">Line Total: </span>
+                      <strong className="text-zinc-950">
+                        {formatCurrency(new Decimal(purchaseRate).mul(qty).toFixed(2))}
+                      </strong>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -448,12 +495,14 @@ export default function PurchasesPage() {
                             {totalChild} {it.childUnit}s
                           </TableCell>
                           <TableCell className="text-right font-mono text-xs text-zinc-700">
-                            {formatCurrency(it.purchaseRate)}
+                            <div>{formatCurrency(it.purchaseRate)}</div>
+                            <div className="text-[10px] text-zinc-400">/{it.unitType === "PARENT" ? it.parentUnit : it.childUnit}</div>
                           </TableCell>
                           <TableCell className="text-right font-mono text-xs font-bold text-zinc-900">
-                            {formatCurrency(landedPerChild.toFixed(2))}
+                            <div>{formatCurrency(landedPerChild.toFixed(2))}</div>
+                            <div className="text-[10px] text-zinc-500 font-normal">/{it.childUnit}</div>
                           </TableCell>
-                          <TableCell className="text-right font-mono font-bold text-xs text-zinc-900">
+                          <TableCell className="text-right font-mono font-bold text-xs text-zinc-950">
                             {formatCurrency(it.lineTotal)}
                           </TableCell>
                           <TableCell className="text-center">
