@@ -48,6 +48,7 @@ import {
   UserPlus,
   Ban,
   Clock,
+  X,
 } from "lucide-react";
 
 export default function BillingPosPage() {
@@ -112,6 +113,24 @@ export default function BillingPosPage() {
   const unitToggleRef = useRef<HTMLButtonElement>(null);
   const qtyInputRef = useRef<HTMLInputElement>(null);
   const rateInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node)
+      ) {
+        setProductDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, []);
 
   // Fetch initial data from DB
   const loadInitialData = async () => {
@@ -215,6 +234,8 @@ export default function BillingPosPage() {
         unitToggleRef.current?.focus();
       }
     } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
       setProductDropdownOpen(false);
     }
   };
@@ -355,7 +376,7 @@ export default function BillingPosPage() {
             <CardContent className="p-3">
               <div className="grid grid-cols-12 gap-2 items-center">
                 {/* Product Search & Autocomplete (Col 5) */}
-                <div className="col-span-5 relative">
+                <div ref={searchContainerRef} className="col-span-5 relative">
                   <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">
                     Product Search [Type or ArrowDown]
                   </span>
@@ -368,13 +389,33 @@ export default function BillingPosPage() {
                       value={searchQuery}
                       onChange={(e) => {
                         setSearchQuery(e.target.value);
-                        setProductDropdownOpen(true);
+                        setProductDropdownOpen(e.target.value.trim().length > 0);
                       }}
-                      onFocus={() => setProductDropdownOpen(true)}
+                      onFocus={() => {
+                        if (!selectedProduct && searchQuery.trim().length > 0) {
+                          setProductDropdownOpen(true);
+                        }
+                      }}
                       onKeyDown={handleItemKeyDown}
-                      className="pl-8 h-8 text-xs font-medium"
+                      className="pl-8 pr-7 h-8 text-xs font-medium"
                       autoFocus
                     />
+                    {searchQuery ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery("");
+                          setSelectedProduct(null);
+                          setRate("");
+                          setProductDropdownOpen(false);
+                          itemInputRef.current?.focus();
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 p-0.5"
+                        title="Clear product search"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
                   </div>
 
                   {/* Dropdown Options List */}

@@ -61,16 +61,16 @@ export default function DashboardLayout({
   }, [router, pathname, setPartyModalOpen]);
 
   const navItems = [
-    { href: "/billing", label: "POS Counter", shortcut: "F2" },
-    { href: "/invoices", label: "Invoices", shortcut: "" },
-    { href: "/purchases", label: "Purchases", shortcut: "F4" },
-    { href: "/expenses", label: "Expenses", shortcut: "" },
-    { href: "/vouchers", label: "Vouchers", shortcut: "F7" },
-    { href: "/parties", label: "Parties", shortcut: "F3" },
-    { href: "/inventory", label: "Inventory", shortcut: "" },
-    { href: "/ledgers", label: "Audit Trail", shortcut: "" },
-    { href: "/reports", label: "Analytics", shortcut: "" },
-    { href: "/settings", label: "Settings", shortcut: "" },
+    { href: "/billing", label: "POS Counter" },
+    { href: "/invoices", label: "Invoices" },
+    { href: "/purchases", label: "Purchases" },
+    { href: "/expenses", label: "Expenses" },
+    { href: "/vouchers", label: "Vouchers" },
+    { href: "/parties", label: "Parties" },
+    { href: "/inventory", label: "Inventory" },
+    { href: "/ledgers", label: "Audit Trail" },
+    { href: "/reports", label: "Analytics" },
+    { href: "/settings", label: "Settings" },
   ];
 
   return (
@@ -97,18 +97,13 @@ export default function DashboardLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center space-x-1.5 px-3 py-1 rounded text-xs font-medium transition-all ${
+                className={`flex items-center px-3 py-1 rounded text-xs font-medium transition-all ${
                   isActive
                     ? "bg-white text-zinc-950 font-semibold shadow-xs"
                     : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60"
                 }`}
               >
                 <span>{item.label}</span>
-                {item.shortcut && (
-                  <span className="text-[10px] font-mono text-zinc-400">
-                    [{item.shortcut}]
-                  </span>
-                )}
               </Link>
             );
           })}

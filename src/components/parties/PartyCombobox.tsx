@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { PartyDialog } from "./PartyDialog";
 import { formatCurrency } from "@/utils/format";
-import { Search, ChevronsUpDown, Check, Plus, User } from "lucide-react";
+import { Search, ChevronsUpDown, Check, Plus, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface PartyComboboxItem {
@@ -110,10 +110,27 @@ export function PartyCombobox({
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setOpen(false);
+                  }
+                }}
                 placeholder="Search party by name, phone..."
-                className="pl-8 h-8 text-xs font-normal"
+                className="pl-8 pr-7 h-8 text-xs font-normal"
                 autoFocus
               />
+              {search ? (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 p-0.5"
+                  title="Clear party search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
             </div>
 
             {/* List */}

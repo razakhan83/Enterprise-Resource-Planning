@@ -40,7 +40,7 @@ body {
   background: #9ca3af;
 }
 
-/* 80mm Pure CSS Thermal Receipt Print Media Layout */
+/* Print Media Styles for Thermal Slip & A4/A5 Vector PDF Invoice */
 @media print {
   body * {
     visibility: hidden;
@@ -66,12 +66,23 @@ body {
     background: #ffffff !important;
   }
 
-  .no-print {
-    display: none !important;
+  #a4-invoice-container,
+  #a4-invoice-container * {
+    visibility: visible;
   }
 
-  @page {
-    size: 80mm auto;
-    margin: 0mm;
+  #a4-invoice-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 10mm !important;
+    background: #ffffff !important;
+  }
+
+  .no-print {
+    display: none !important;
   }
 }
