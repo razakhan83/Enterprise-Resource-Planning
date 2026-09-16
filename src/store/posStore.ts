@@ -48,6 +48,8 @@ export type CompletedReceiptData = {
   totalAmount: string;
   discountAmount: string;
   netAmount: string;
+  paidAmount?: string;
+  balanceDue?: string;
   biltyNumber?: string;
   transporterName?: string;
   freightTerms?: string;

@@ -303,6 +303,8 @@ export default function BillingPosPage() {
         totalAmount: result.totalAmount || getGrossTotal(),
         discountAmount: result.discountAmount || discountAmount,
         netAmount: result.netAmount || getNetPayable(),
+        paidAmount: selectedParty ? "0.00" : (result.netAmount || getNetPayable()),
+        balanceDue: selectedParty ? (result.netAmount || getNetPayable()) : "0.00",
         biltyNumber,
         transporterName,
         freightTerms,
@@ -997,6 +999,8 @@ export default function BillingPosPage() {
                   totalAmount={completedReceipt.totalAmount}
                   discountAmount={completedReceipt.discountAmount}
                   netAmount={completedReceipt.netAmount}
+                  paidAmount={completedReceipt.paidAmount}
+                  balanceDue={completedReceipt.balanceDue}
                   biltyNumber={completedReceipt.biltyNumber}
                   transporterName={completedReceipt.transporterName}
                   freightTerms={completedReceipt.freightTerms}
@@ -1072,6 +1076,8 @@ export default function BillingPosPage() {
                 totalAmount={completedReceipt.totalAmount}
                 discountAmount={completedReceipt.discountAmount}
                 netAmount={completedReceipt.netAmount}
+                paidAmount={completedReceipt.paidAmount}
+                balanceDue={completedReceipt.balanceDue}
                 biltyNumber={completedReceipt.biltyNumber}
                 transporterName={completedReceipt.transporterName}
                 freightTerms={completedReceipt.freightTerms}

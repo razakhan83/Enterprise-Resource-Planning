@@ -36,6 +36,8 @@ export interface A4InvoiceProps {
   totalAmount: string;
   discountAmount: string;
   netAmount: string;
+  paidAmount?: string;
+  balanceDue?: string;
   biltyNumber?: string;
   transporterName?: string;
   freightTerms?: string;
@@ -56,6 +58,8 @@ export const A4Invoice: React.FC<A4InvoiceProps> = ({
   totalAmount,
   discountAmount,
   netAmount,
+  paidAmount,
+  balanceDue,
   biltyNumber,
   transporterName,
   freightTerms,
@@ -224,6 +228,22 @@ export const A4Invoice: React.FC<A4InvoiceProps> = ({
             <span className="font-sans">Net Payable:</span>
             <span className="text-zinc-950">{formatCurrency(netAmount)}</span>
           </div>
+
+          {paidAmount !== undefined && (
+            <div className="flex justify-between py-1 border-b border-zinc-200 text-emerald-800">
+              <span className="font-sans font-medium">Amount Received / Paid:</span>
+              <span className="font-bold">{formatCurrency(paidAmount)}</span>
+            </div>
+          )}
+
+          {balanceDue !== undefined && (
+            <div className="flex justify-between py-1 border-b border-zinc-200">
+              <span className="font-sans font-medium">Invoice Balance Due:</span>
+              <span className={`font-bold ${Number(balanceDue) > 0 ? "text-amber-800" : "text-zinc-600"}`}>
+                {formatCurrency(balanceDue)}
+              </span>
+            </div>
+          )}
 
           {prevBalNum > 0 && (
             <div className="pt-1 text-[11px] space-y-1 bg-zinc-50 p-2 rounded border border-zinc-200">

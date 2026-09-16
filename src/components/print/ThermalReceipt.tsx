@@ -17,6 +17,8 @@ export type ThermalReceiptProps = {
   totalAmount: string;
   discountAmount: string;
   netAmount: string;
+  paidAmount?: string;
+  balanceDue?: string;
   biltyNumber?: string;
   transporterName?: string;
   freightTerms?: string;
@@ -34,6 +36,8 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   totalAmount,
   discountAmount,
   netAmount,
+  paidAmount,
+  balanceDue,
   biltyNumber,
   transporterName,
   freightTerms,
@@ -132,6 +136,20 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
           <span>NET BILL AMOUNT:</span>
           <span>{formatCurrency(netAmount)}</span>
         </div>
+
+        {paidAmount !== undefined && (
+          <div className="flex justify-between text-[10px] font-semibold text-black">
+            <span>PAID / RECEIVED:</span>
+            <span>{formatCurrency(paidAmount)}</span>
+          </div>
+        )}
+
+        {balanceDue !== undefined && (
+          <div className="flex justify-between text-[10px] font-bold text-black border-t border-dashed border-zinc-400 pt-0.5">
+            <span>BALANCE DUE:</span>
+            <span>{formatCurrency(balanceDue)}</span>
+          </div>
+        )}
 
         {/* Previous Balance Carry-Forward */}
         {prevBalNum > 0 && (
