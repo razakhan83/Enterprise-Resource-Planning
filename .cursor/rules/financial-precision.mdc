@@ -1,0 +1,10 @@
+---
+description: Enforce NUMERIC(14,2), decimal.js, and zero floating-point errors.
+globs: src/actions/**/*.ts, src/db/**/*.ts
+---
+
+# Financial Precision Standard
+
+- Database Schema: Always enforce PostgreSQL `NUMERIC(14, 2)` across all financial and balance columns. Never use floating-point types (`REAL`, `FLOAT`, `DOUBLE`).
+- Server Logic: Strictly calculate using `decimal.js` or string-based decimal logic in TypeScript. Never use native JavaScript math (`+`, `-`, `*`, `/`) for money.
+- Currency Formatting: Enforce 2-decimal formatted currency output (`Rs. 0.00`) across all ledger lines and invoice views.

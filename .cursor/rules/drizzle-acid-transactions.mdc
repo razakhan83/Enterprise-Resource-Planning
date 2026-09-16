@@ -1,0 +1,11 @@
+---
+description: Wrap complex financial mutations in db.transaction.
+globs: src/actions/**/*.ts
+---
+
+# Drizzle ACID Transactions Standard
+
+- Transaction Boundary: Wrap all multi-step state mutations (billing, stock adjustments, contra settlements, vouchers) inside `db.transaction(async (tx) => { ... })`.
+- Atomic Commit & Rollback: Throwing errors must cleanly trigger rollback and return typed error responses.
+- Atomic Sequences: Never read max invoice numbers with raw SELECTs. Always read native PostgreSQL sequences atomically via `SELECT nextval('kacha_invoice_seq')` or `SELECT nextval('pakka_invoice_seq')`.
+- Double-Entry Balance: Verify debit == credit before transaction commit.

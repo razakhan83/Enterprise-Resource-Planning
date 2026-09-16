@@ -1,0 +1,17 @@
+---
+description: Hotkeys, anti-AI dense layout, and 80mm thermal receipt CSS.
+globs: src/app/(dashboard)/billing/**/*.tsx
+---
+
+# Keyboard-First POS UI Standard
+
+- Global Hotkeys:
+  - `F2`: POS Counter / Quick Item Search
+  - `F3`: Party Directory Modal
+  - `F4`: Purchase Entry
+  - `F7`: Payment / Receipt Voucher
+  - `Ctrl + Enter`: Commit & Print 80mm Thermal Receipt
+  - `Escape`: Cancel / Reset active input
+- Fast-Entry Navigation: `Enter` transitions seamlessly across `Item -> Unit Toggle -> Quantity -> Rate -> Discount -> Add to Cart`.
+- Anti-AI Aesthetics: Grounded neutral tones (`#F8F9FA`, `#FAFAFA`, `#F4F4F5`, `#18181B`), crisp 1px borders (`#E5E7EB`), monospace font for figures, zero emojis in headers/badges, and transitions under 150ms.
+- 80mm Thermal Slip: Pure CSS `@media print` layout rendering in < 150ms without unnecessary browser dialog delays.

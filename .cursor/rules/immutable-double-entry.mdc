@@ -1,0 +1,11 @@
+---
+description: Enforce Debit == Credit and strictly prohibit DELETE/UPDATE on ledger records.
+globs: src/actions/ledgers.ts, src/db/schema.ts
+---
+
+# Immutable Double-Entry Standard
+
+- Zero Mutation Policy: Strictly prohibit `UPDATE` and `DELETE` queries on `ledger_transactions`.
+- Reversal Vouchers: Corrections and cancellations must be posted as offsetting Debit Notes, Credit Notes, or Reversal Vouchers.
+- Double-Entry Equation: Every financial transaction must satisfy `Sum(Debits) == Sum(Credits)`.
+- System Reserve Accounts: Post walk-in cash sales to `SYSTEM_CASH`, invoice discount adjustments to `KASR_DISCOUNT_EXPENSE`, and total invoice volume to `SALES_REVENUE`.

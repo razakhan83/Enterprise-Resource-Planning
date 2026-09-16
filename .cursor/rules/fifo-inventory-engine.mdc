@@ -1,0 +1,12 @@
+---
+description: Enforce FIFO stock deduction, landed cost, and FOR UPDATE batch locking.
+globs: src/actions/billing.ts, src/actions/inventory.ts
+---
+
+# FIFO Inventory Engine Standard
+
+- Batch Priority: Sort open batches by `received_date ASC` (oldest open lot first).
+- Concurrency Locking: Batch inventory reads during sales deductions must utilize PostgreSQL Row-Level Locking (`FOR UPDATE`) to prevent negative stock and race conditions.
+- Multi-Batch Split: If order quantity exceeds Batch 1, consume Batch 1 completely and split remainder into subsequent open batches.
+- Cost Snapshotting: Lock the exact landed purchase cost snapshot (`cost_snapshot`) on each sales line item for accurate gross margin calculation.
+- Unit Conversion: Normalize quantities into child units before batch deductions if sold in parent units.
