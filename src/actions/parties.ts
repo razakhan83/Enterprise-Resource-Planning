@@ -178,3 +178,50 @@ export async function createParty(params: CreatePartyParams): Promise<CreatePart
     return { success: false, error: error.message };
   }
 }
+
+export interface UpdatePartyParams {
+  id: string;
+  name: string;
+  type?: "CUSTOMER" | "SUPPLIER" | "DUAL";
+  phone?: string | null;
+  address?: string | null;
+  creditLimit?: string;
+}
+
+export async function updateParty(params: UpdatePartyParams) {
+  const { id, name, type, phone, address, creditLimit } = params;
+
+  if (!id) return { success: false, error: "Party ID is required." };
+  if (!name || name.trim().length === 0) {
+    return { success: false, error: "Party name is required." };
+  }
+
+  try {
+    const updateData: any = {
+      name: name.trim(),
+      phone: phone?.trim() || null,
+      address: address?.trim() || null,
+    };
+    if (type) updateData.type = type;
+    if (creditLimit !== undefined) {
+      updateData.creditLimit = new Decimal(creditLimit || 0).toFixed(2);
+    }
+
+    const [updated] = await db
+      .update(parties)
+      .set(updateData)
+      .where(eq(parties.id, id))
+      .returning();
+
+    revalidatePath("/parties");
+    revalidatePath("/billing");
+    revalidatePath("/purchases");
+    revalidatePath("/ledgers");
+
+    return { success: true, party: updated };
+  } catch (error: any) {
+    console.error("Failed to update party:", error);
+    return { success: false, error: error.message };
+  }
+}
+

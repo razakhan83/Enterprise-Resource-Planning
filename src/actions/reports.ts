@@ -6,6 +6,7 @@ import {
   productBatches,
   parties,
   operatingExpenses,
+  expenses,
   ledgerTransactions,
 } from "@/db/schema";
 import { eq, sql, desc } from "drizzle-orm";
@@ -80,11 +81,15 @@ export async function getReportsData() {
     });
 
     // 2. Operating Expenses
-    const expenses = await db.select().from(operatingExpenses);
-    const totalExpenses = expenses.reduce(
-      (acc, exp) => acc.plus(new Decimal(exp.amount)),
-      new Decimal(0)
-    );
+    const oldExpenses = await db.select().from(operatingExpenses);
+    const newExpenses = await db.select().from(expenses);
+    let totalExpenses = new Decimal(0);
+    for (const exp of oldExpenses) {
+      totalExpenses = totalExpenses.plus(new Decimal(exp.amount));
+    }
+    for (const exp of newExpenses) {
+      totalExpenses = totalExpenses.plus(new Decimal(exp.amount));
+    }
 
     const grossProfit = totalRevenue.minus(totalCogs);
     const netProfit = grossProfit.minus(totalExpenses);
@@ -132,11 +137,18 @@ export async function getReportsData() {
         grossProfit: grossProfit.toFixed(2),
         totalExpenses: totalExpenses.toFixed(2),
         netProfit: netProfit.toFixed(2),
-        expensesBreakdown: expenses.map((e) => ({
-          category: e.category,
-          amount: e.amount,
-          notes: e.notes,
-        })),
+        expensesBreakdown: [
+          ...oldExpenses.map((e) => ({
+            category: e.category,
+            amount: e.amount,
+            notes: e.notes,
+          })),
+          ...newExpenses.map((e) => ({
+            category: e.category,
+            amount: e.amount,
+            notes: e.description,
+          })),
+        ],
       },
       agingList,
     };

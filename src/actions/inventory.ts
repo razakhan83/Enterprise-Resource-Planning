@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/db";
+import { revalidatePath } from "next/cache";
 import {
   productBatches,
   warehouseTransfers,
@@ -9,8 +10,12 @@ import {
   parties,
   ledgerTransactions,
   operatingExpenses,
+  purchaseInvoices,
+  purchaseItems,
+  salesInvoices,
+  salesItems,
 } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 import Decimal from "decimal.js";
 
 export async function getWarehouseTransferData() {
@@ -292,27 +297,44 @@ export async function getInventoryMasterData() {
         productId: productBatches.productId,
         productName: products.name,
         supplierName: parties.name,
+        warehouseName: warehouses.name,
         receivedDate: productBatches.receivedDate,
         originalQty: productBatches.originalQty,
         remainingQty: productBatches.remainingQty,
         landedCost: productBatches.landedCost,
         childUnit: products.childUnit,
+        inwardInvoiceNo: purchaseInvoices.invoiceNo,
+        purchaseRate: purchaseItems.purchaseRate,
       })
       .from(productBatches)
       .innerJoin(products, eq(productBatches.productId, products.id))
       .innerJoin(parties, eq(productBatches.supplierId, parties.id))
+      .leftJoin(warehouses, eq(productBatches.warehouseId, warehouses.id))
+      .leftJoin(purchaseItems, eq(productBatches.id, purchaseItems.batchId))
+      .leftJoin(purchaseInvoices, eq(purchaseItems.purchaseId, purchaseInvoices.id))
       .orderBy(sql`${productBatches.receivedDate} DESC`);
 
-    // Aggregate stock by product
+    // Aggregate stock by product & calculate total stock valuation
     const stockMap = new Map<string, number>();
+    let totalStockVal = new Decimal(0);
+    let activeLotsCount = 0;
+
     for (const b of activeBatches) {
       stockMap.set(b.productId, (stockMap.get(b.productId) || 0) + b.remainingQty);
+      if (b.remainingQty > 0) {
+        activeLotsCount++;
+        const batchVal = new Decimal(b.landedCost || 0).mul(b.remainingQty);
+        totalStockVal = totalStockVal.plus(batchVal);
+      }
     }
 
+    let lowStockCount = 0;
     const productsWithStock = allProducts.map((p) => {
       const childStock = stockMap.get(p.id) || 0;
       const parentStock = p.conversionRate > 0 ? Math.floor(childStock / p.conversionRate) : 0;
       const looseChild = p.conversionRate > 0 ? childStock % p.conversionRate : childStock;
+      if (childStock <= 10) lowStockCount++;
+
       return {
         ...p,
         totalChildStock: childStock,
@@ -325,10 +347,147 @@ export async function getInventoryMasterData() {
       success: true,
       products: productsWithStock,
       batches: activeBatches,
+      summary: {
+        totalProducts: allProducts.length,
+        totalStockValue: totalStockVal.toFixed(2),
+        activeLotsCount,
+        lowStockCount,
+      },
     };
   } catch (err: any) {
     console.error("Failed to get inventory master data:", err);
-    return { success: false, products: [], batches: [], error: err.message };
+    return {
+      success: false,
+      products: [],
+      batches: [],
+      summary: { totalProducts: 0, totalStockValue: "0.00", activeLotsCount: 0, lowStockCount: 0 },
+      error: err.message,
+    };
   }
 }
+
+export async function getProductMovementHistory(productId: string) {
+  try {
+    // 1. Inward Lots
+    const inwardLots = await db
+      .select({
+        batchId: productBatches.id,
+        receivedDate: productBatches.receivedDate,
+        originalQty: productBatches.originalQty,
+        remainingQty: productBatches.remainingQty,
+        landedCost: productBatches.landedCost,
+        supplierName: parties.name,
+        warehouseName: warehouses.name,
+        inwardInvoiceNo: purchaseInvoices.invoiceNo,
+        purchaseRate: purchaseItems.purchaseRate,
+      })
+      .from(productBatches)
+      .innerJoin(parties, eq(productBatches.supplierId, parties.id))
+      .leftJoin(warehouses, eq(productBatches.warehouseId, warehouses.id))
+      .leftJoin(purchaseItems, eq(productBatches.id, purchaseItems.batchId))
+      .leftJoin(purchaseInvoices, eq(purchaseItems.purchaseId, purchaseInvoices.id))
+      .where(eq(productBatches.productId, productId))
+      .orderBy(desc(productBatches.receivedDate));
+
+    // 2. Outward Sales Trace (Lot-level piece consumption)
+    const salesTrace = await db
+      .select({
+        itemId: salesItems.id,
+        invoiceNo: salesInvoices.invoiceNo,
+        soldDate: salesInvoices.createdAt,
+        customerName: parties.name,
+        batchId: salesItems.batchId,
+        qtyConsumed: salesItems.qtyConsumed, // in child units
+        unitTypeSold: salesItems.unitTypeSold,
+        saleRate: salesItems.saleRate,
+        costSnapshot: salesItems.costSnapshot,
+      })
+      .from(salesItems)
+      .innerJoin(salesInvoices, eq(salesItems.invoiceId, salesInvoices.id))
+      .leftJoin(parties, eq(salesInvoices.partyId, parties.id))
+      .where(eq(salesItems.productId, productId))
+      .orderBy(desc(salesInvoices.createdAt))
+      .limit(100);
+
+    // 3. Transfers Trace
+    const transfersTrace = await db
+      .select({
+        id: warehouseTransfers.id,
+        transferChalanNo: warehouseTransfers.transferChalanNo,
+        qtyMoved: warehouseTransfers.qtyMoved,
+        createdAt: warehouseTransfers.createdAt,
+        fromWarehouseName: sql<string>`w1.name`,
+        toWarehouseName: sql<string>`w2.name`,
+      })
+      .from(warehouseTransfers)
+      .innerJoin(sql`warehouses w1`, sql`w1.id = ${warehouseTransfers.fromWarehouseId}`)
+      .innerJoin(sql`warehouses w2`, sql`w2.id = ${warehouseTransfers.toWarehouseId}`)
+      .where(eq(warehouseTransfers.productId, productId))
+      .orderBy(desc(warehouseTransfers.createdAt));
+
+    return {
+      success: true,
+      inwardLots,
+      salesTrace: salesTrace.map((s) => {
+        const cost = new Decimal(s.costSnapshot);
+        const rate = new Decimal(s.saleRate);
+        const marginRs = rate.minus(cost);
+        return {
+          ...s,
+          customerName: s.customerName || "Cash Walk-in",
+          marginRs: marginRs.toFixed(2),
+          isLoss: marginRs.isNegative(),
+        };
+      }),
+      transfersTrace,
+    };
+  } catch (err: any) {
+    console.error("Failed to get product movement history:", err);
+    return { success: false, inwardLots: [], salesTrace: [], transfersTrace: [], error: err.message };
+  }
+}
+
+export interface UpdateProductParams {
+  id: string;
+  name?: string;
+  sku?: string | null;
+  parentUnit?: string;
+  childUnit?: string;
+  conversionRate?: number;
+  defaultSaleRate?: string;
+}
+
+export async function updateProduct(params: UpdateProductParams) {
+  const { id, name, sku, parentUnit, childUnit, conversionRate, defaultSaleRate } = params;
+
+  if (!id) return { success: false, error: "Product ID is required." };
+
+  try {
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name.trim();
+    if (sku !== undefined) updateData.sku = sku?.trim() || null;
+    if (parentUnit !== undefined) updateData.parentUnit = parentUnit.trim();
+    if (childUnit !== undefined) updateData.childUnit = childUnit.trim();
+    if (conversionRate !== undefined) updateData.conversionRate = Number(conversionRate);
+    if (defaultSaleRate !== undefined) {
+      updateData.defaultSaleRate = new Decimal(defaultSaleRate || 0).toFixed(2);
+    }
+
+    const [updated] = await db
+      .update(products)
+      .set(updateData)
+      .where(eq(products.id, id))
+      .returning();
+
+    revalidatePath("/inventory");
+    revalidatePath("/billing");
+    revalidatePath("/purchases");
+
+    return { success: true, product: updated };
+  } catch (err: any) {
+    console.error("Failed to update product:", err);
+    return { success: false, error: err.message || "Failed to update product" };
+  }
+}
+
 

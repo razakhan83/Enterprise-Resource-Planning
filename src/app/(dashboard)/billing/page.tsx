@@ -33,7 +33,8 @@ import {
 } from "@/components/ui/dialog";
 import { ThermalReceipt } from "@/components/print/ThermalReceipt";
 import { A4Invoice } from "@/components/print/A4Invoice";
-import { PartyCreateDialog } from "@/components/parties/PartyCreateDialog";
+import { PartyCombobox } from "@/components/parties/PartyCombobox";
+import { PartyDialog } from "@/components/parties/PartyDialog";
 import {
   Search,
   User,
@@ -108,6 +109,7 @@ export default function BillingPosPage() {
 
   // Focus Refs for Fast Keyboard Entry
   const itemInputRef = useRef<HTMLInputElement>(null);
+  const unitToggleRef = useRef<HTMLButtonElement>(null);
   const qtyInputRef = useRef<HTMLInputElement>(null);
   const rateInputRef = useRef<HTMLInputElement>(null);
 
@@ -145,8 +147,7 @@ export default function BillingPosPage() {
     setRate(calculated);
 
     setTimeout(() => {
-      qtyInputRef.current?.focus();
-      qtyInputRef.current?.select();
+      unitToggleRef.current?.focus();
     }, 40);
   };
 
@@ -211,18 +212,24 @@ export default function BillingPosPage() {
       if (productDropdownOpen && filteredProducts[dropdownIndex]) {
         handleSelectProduct(filteredProducts[dropdownIndex]);
       } else if (selectedProduct) {
-        qtyInputRef.current?.focus();
-        qtyInputRef.current?.select();
+        unitToggleRef.current?.focus();
       }
     } else if (e.key === "Escape") {
       setProductDropdownOpen(false);
     }
   };
 
-  // Global POS Hotkeys (Ctrl+Enter for Thermal, Ctrl+P for PDF)
+  // Global POS Hotkeys (F2 for Search, F3 for Party, Ctrl+Enter for Thermal, Ctrl+P for PDF)
   useEffect(() => {
     const handleGlobalPosKeys = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === "Enter") {
+      if (e.key === "F2") {
+        e.preventDefault();
+        itemInputRef.current?.focus();
+        itemInputRef.current?.select();
+      } else if (e.key === "F3") {
+        e.preventDefault();
+        setIsQuickPartyOpen(true);
+      } else if (e.ctrlKey && e.key === "Enter") {
         e.preventDefault();
         handleCommitCheckout("THERMAL");
       } else if (e.ctrlKey && (e.key === "p" || e.key === "P")) {
@@ -403,9 +410,20 @@ export default function BillingPosPage() {
                   <span className="text-[10px] text-zinc-500 font-medium block mb-0.5">Unit</span>
                   <div className="flex border border-zinc-200 rounded h-8 overflow-hidden bg-zinc-50">
                     <button
+                      ref={unitToggleRef}
                       type="button"
                       onClick={() => handleUnitToggle("CHILD")}
-                      className={`flex-1 text-[11px] font-semibold transition-colors ${
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          qtyInputRef.current?.focus();
+                          qtyInputRef.current?.select();
+                        } else if (e.key === "ArrowRight" || e.key === "ArrowLeft" || e.key === " ") {
+                          e.preventDefault();
+                          handleUnitToggle("PARENT");
+                        }
+                      }}
+                      className={`flex-1 text-[11px] font-semibold transition-colors focus:outline-none focus:ring-1 focus:ring-zinc-950 ${
                         unitType === "CHILD"
                           ? "bg-zinc-900 text-white"
                           : "text-zinc-600 hover:text-zinc-900"
@@ -416,7 +434,17 @@ export default function BillingPosPage() {
                     <button
                       type="button"
                       onClick={() => handleUnitToggle("PARENT")}
-                      className={`flex-1 text-[11px] font-semibold transition-colors ${
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          qtyInputRef.current?.focus();
+                          qtyInputRef.current?.select();
+                        } else if (e.key === "ArrowRight" || e.key === "ArrowLeft" || e.key === " ") {
+                          e.preventDefault();
+                          handleUnitToggle("CHILD");
+                        }
+                      }}
+                      className={`flex-1 text-[11px] font-semibold transition-colors focus:outline-none focus:ring-1 focus:ring-zinc-950 ${
                         unitType === "PARENT"
                           ? "bg-zinc-900 text-white"
                           : "text-zinc-600 hover:text-zinc-900"
@@ -647,34 +675,30 @@ export default function BillingPosPage() {
                     <span className="text-xs text-zinc-700 font-medium">Billed To / Party</span>
                     <button
                       type="button"
-                      onClick={() => setPartyModalOpen(true)}
-                      className="text-[11px] text-zinc-900 font-semibold hover:underline flex items-center"
+                      onClick={() => setIsQuickPartyOpen(true)}
+                      className="text-[11px] text-zinc-600 hover:text-zinc-900 font-medium flex items-center"
                     >
-                      <User className="h-3 w-3 mr-1" />
-                      <span>Change [F3]</span>
+                      <UserPlus className="h-3 w-3 mr-1" />
+                      <span>New Party [F3]</span>
                     </button>
                   </div>
-                  <div
-                    onClick={() => setPartyModalOpen(true)}
-                    className="p-2.5 border border-zinc-200 rounded-md bg-zinc-50/70 hover:bg-zinc-100/70 cursor-pointer transition-colors flex justify-between items-center"
-                  >
-                    <div>
-                      <div className="text-xs font-bold text-zinc-900 truncate max-w-[180px]">
-                        {selectedParty ? selectedParty.name : "Cash-in-Hand Customer"}
-                      </div>
-                      <div className="text-[10px] text-zinc-500">
-                        {selectedParty ? `${selectedParty.type} Account` : "Direct Counter Sale"}
-                      </div>
+                  <PartyCombobox
+                    parties={parties}
+                    selectedPartyId={selectedParty?.id || null}
+                    onSelectParty={(p) => setParty(p as any)}
+                    allowedTypes={["CUSTOMER", "DUAL"]}
+                    allowCashOption={true}
+                    placeholder="Cash-in-Hand Customer"
+                    defaultNewPartyType="CUSTOMER"
+                  />
+                  {selectedParty && (
+                    <div className="mt-1.5 px-2.5 py-1.5 bg-zinc-50 border border-zinc-200 rounded flex justify-between items-center text-xs">
+                      <span className="text-zinc-500 font-medium">Previous Balance:</span>
+                      <span className="font-mono font-bold text-zinc-900">
+                        {formatCurrency(selectedParty.currentBalance)}
+                      </span>
                     </div>
-                    {selectedParty && (
-                      <div className="text-right">
-                        <div className="text-xs font-mono font-bold text-zinc-900">
-                          {formatCurrency(selectedParty.currentBalance)}
-                        </div>
-                        <div className="text-[9px] text-zinc-400">Previous Bal</div>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
 
                 {/* Logistics / Transport Booking Trigger */}
@@ -832,14 +856,16 @@ export default function BillingPosPage() {
         </DialogContent>
       </Dialog>
 
-      {/* QUICK ADD PARTY DIALOG */}
-      <PartyCreateDialog
+      {/* QUICK ADD / EDIT PARTY DIALOG */}
+      <PartyDialog
         open={isQuickPartyOpen}
         onOpenChange={setIsQuickPartyOpen}
+        defaultType="CUSTOMER"
         onSuccess={(newParty) => {
           setParties((prev) => [newParty, ...prev]);
-          setParty(newParty);
+          setParty(newParty as any);
           setPartyModalOpen(false);
+          setIsQuickPartyOpen(false);
         }}
       />
 

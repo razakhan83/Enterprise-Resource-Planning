@@ -62,7 +62,9 @@ export default function DashboardLayout({
 
   const navItems = [
     { href: "/billing", label: "POS Counter", shortcut: "F2" },
+    { href: "/invoices", label: "Invoices", shortcut: "" },
     { href: "/purchases", label: "Purchases", shortcut: "F4" },
+    { href: "/expenses", label: "Expenses", shortcut: "" },
     { href: "/vouchers", label: "Vouchers", shortcut: "F7" },
     { href: "/parties", label: "Parties", shortcut: "F3" },
     { href: "/inventory", label: "Inventory", shortcut: "" },

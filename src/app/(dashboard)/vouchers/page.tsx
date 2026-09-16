@@ -12,6 +12,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { PartyCombobox } from "@/components/parties/PartyCombobox";
 import { ArrowDownLeft, ArrowUpRight, Repeat, CheckCircle2, AlertCircle, Building, Wallet } from "lucide-react";
 
 export default function VouchersPage() {
@@ -191,19 +199,15 @@ export default function VouchersPage() {
                 {/* Customer Account */}
                 <div className="space-y-1.5">
                   <label className="font-medium text-zinc-700">Customer Account</label>
-                  <select
-                    value={selectedPartyId}
-                    onChange={(e) => setSelectedPartyId(e.target.value)}
-                    className="w-full h-8 px-2.5 border border-zinc-200 rounded-md bg-white text-xs font-medium text-zinc-900"
-                  >
-                    {parties
-                      .filter((p) => p.type === "CUSTOMER" || p.type === "DUAL")
-                      .map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} (Balance: {formatCurrency(p.currentBalance)})
-                        </option>
-                      ))}
-                  </select>
+                  <PartyCombobox
+                    parties={parties}
+                    selectedPartyId={selectedPartyId || null}
+                    onSelectParty={(p) => setSelectedPartyId(p ? p.id : "")}
+                    allowedTypes={["CUSTOMER", "DUAL"]}
+                    allowCashOption={false}
+                    placeholder="Search or Select Customer..."
+                    defaultNewPartyType="CUSTOMER"
+                  />
                 </div>
 
                 {/* Amount Received */}
@@ -215,7 +219,7 @@ export default function VouchersPage() {
                     placeholder="0.00"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="h-8 font-mono font-semibold text-emerald-800"
+                    className="h-9 font-mono font-semibold text-emerald-800"
                   />
                 </div>
               </div>
@@ -230,7 +234,7 @@ export default function VouchersPage() {
                       variant={paymentMethod === "CASH" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setPaymentMethod("CASH")}
-                      className="h-8"
+                      className="h-9"
                     >
                       Cash-in-Hand
                     </Button>
@@ -239,7 +243,7 @@ export default function VouchersPage() {
                       variant={paymentMethod === "BANK" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setPaymentMethod("BANK")}
-                      className="h-8"
+                      className="h-9"
                     >
                       Bank Account
                     </Button>
@@ -249,17 +253,18 @@ export default function VouchersPage() {
                 {paymentMethod === "BANK" ? (
                   <div className="space-y-1.5">
                     <label className="font-medium text-zinc-700">Receiving Bank</label>
-                    <select
-                      value={selectedBankId}
-                      onChange={(e) => setSelectedBankId(e.target.value)}
-                      className="w-full h-8 px-2.5 border border-zinc-200 rounded-md bg-white text-xs font-medium text-zinc-900"
-                    >
-                      {banks.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.bankName} - {b.accountNumber} ({formatCurrency(b.currentBalance)})
-                        </option>
-                      ))}
-                    </select>
+                    <Select value={selectedBankId} onValueChange={setSelectedBankId}>
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="Select Bank Account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {banks.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.bankName} - {b.accountNumber} ({formatCurrency(b.currentBalance)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 ) : (
                   <div className="space-y-1.5">
@@ -269,7 +274,7 @@ export default function VouchersPage() {
                       placeholder="e.g. Counter Cash Receipt #42"
                       value={referenceNo}
                       onChange={(e) => setReferenceNo(e.target.value)}
-                      className="h-8 font-mono"
+                      className="h-9 font-mono"
                     />
                   </div>
                 )}
@@ -314,19 +319,15 @@ export default function VouchersPage() {
                 {/* Supplier Account */}
                 <div className="space-y-1.5">
                   <label className="font-medium text-zinc-700">Vendor / Supplier</label>
-                  <select
-                    value={selectedPartyId}
-                    onChange={(e) => setSelectedPartyId(e.target.value)}
-                    className="w-full h-8 px-2.5 border border-zinc-200 rounded-md bg-white text-xs font-medium text-zinc-900"
-                  >
-                    {parties
-                      .filter((p) => p.type === "SUPPLIER" || p.type === "DUAL")
-                      .map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} (Payable Balance: {formatCurrency(p.currentBalance)})
-                        </option>
-                      ))}
-                  </select>
+                  <PartyCombobox
+                    parties={parties}
+                    selectedPartyId={selectedPartyId || null}
+                    onSelectParty={(p) => setSelectedPartyId(p ? p.id : "")}
+                    allowedTypes={["SUPPLIER", "DUAL"]}
+                    allowCashOption={false}
+                    placeholder="Search or Select Supplier..."
+                    defaultNewPartyType="SUPPLIER"
+                  />
                 </div>
 
                 {/* Amount Paid */}
@@ -338,7 +339,7 @@ export default function VouchersPage() {
                     placeholder="0.00"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="h-8 font-mono font-semibold text-blue-800"
+                    className="h-9 font-mono font-semibold text-blue-800"
                   />
                 </div>
               </div>
@@ -353,7 +354,7 @@ export default function VouchersPage() {
                       variant={paymentMethod === "CASH" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setPaymentMethod("CASH")}
-                      className="h-8"
+                      className="h-9"
                     >
                       Cash-in-Hand
                     </Button>
@@ -362,7 +363,7 @@ export default function VouchersPage() {
                       variant={paymentMethod === "BANK" ? "default" : "outline"}
                       size="sm"
                       onClick={() => setPaymentMethod("BANK")}
-                      className="h-8"
+                      className="h-9"
                     >
                       Bank Transfer
                     </Button>
@@ -372,17 +373,18 @@ export default function VouchersPage() {
                 {paymentMethod === "BANK" ? (
                   <div className="space-y-1.5">
                     <label className="font-medium text-zinc-700">Disbursing Bank</label>
-                    <select
-                      value={selectedBankId}
-                      onChange={(e) => setSelectedBankId(e.target.value)}
-                      className="w-full h-8 px-2.5 border border-zinc-200 rounded-md bg-white text-xs font-medium text-zinc-900"
-                    >
-                      {banks.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.bankName} - {b.accountNumber} ({formatCurrency(b.currentBalance)})
-                        </option>
-                      ))}
-                    </select>
+                    <Select value={selectedBankId} onValueChange={setSelectedBankId}>
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="Select Disbursing Bank" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {banks.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.bankName} - {b.accountNumber} ({formatCurrency(b.currentBalance)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 ) : (
                   <div className="space-y-1.5">
@@ -392,7 +394,7 @@ export default function VouchersPage() {
                       placeholder="e.g. PV-901"
                       value={referenceNo}
                       onChange={(e) => setReferenceNo(e.target.value)}
-                      className="h-8 font-mono"
+                      className="h-9 font-mono"
                     />
                   </div>
                 )}
@@ -437,19 +439,15 @@ export default function VouchersPage() {
                 {/* Dual Party */}
                 <div className="space-y-1.5">
                   <label className="font-medium text-zinc-700">Dual Trading Party</label>
-                  <select
-                    value={contraPartyId}
-                    onChange={(e) => setContraPartyId(e.target.value)}
-                    className="w-full h-8 px-2.5 border border-zinc-200 rounded-md bg-white text-xs font-medium text-zinc-900"
-                  >
-                    {parties
-                      .filter((p) => p.type === "DUAL")
-                      .map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} (Running Balance: {formatCurrency(p.currentBalance)})
-                        </option>
-                      ))}
-                  </select>
+                  <PartyCombobox
+                    parties={parties}
+                    selectedPartyId={contraPartyId || null}
+                    onSelectParty={(p) => setContraPartyId(p ? p.id : "")}
+                    allowedTypes={["DUAL"]}
+                    allowCashOption={false}
+                    placeholder="Select Dual Trading Party..."
+                    defaultNewPartyType="DUAL"
+                  />
                 </div>
 
                 {/* Netted Amount */}
@@ -461,7 +459,7 @@ export default function VouchersPage() {
                     placeholder="0.00"
                     value={nettedAmount}
                     onChange={(e) => setNettedAmount(e.target.value)}
-                    className="h-8 font-mono font-semibold text-purple-800"
+                    className="h-9 font-mono font-semibold text-purple-800"
                   />
                 </div>
               </div>
@@ -475,21 +473,22 @@ export default function VouchersPage() {
                     step="0.01"
                     value={cashDifference}
                     onChange={(e) => setCashDifference(e.target.value)}
-                    className="h-8 font-mono"
+                    className="h-9 font-mono"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="font-medium text-zinc-700">Difference Action</label>
-                  <select
-                    value={differenceAction}
-                    onChange={(e: any) => setDifferenceAction(e.target.value)}
-                    className="w-full h-8 px-2.5 border border-zinc-200 rounded-md bg-white text-xs font-medium text-zinc-900"
-                  >
-                    <option value="NONE">None (Pure Ledger Contra Offset)</option>
-                    <option value="RECEIVE_CASH">Receive Cash Difference into Tijori</option>
-                    <option value="PAY_CASH">Pay Cash Difference to Party</option>
-                  </select>
+                  <Select value={differenceAction} onValueChange={(val: any) => setDifferenceAction(val)}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Select Difference Action" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NONE">None (Pure Ledger Contra Offset)</SelectItem>
+                      <SelectItem value="RECEIVE_CASH">Receive Cash Difference into Cash Drawer</SelectItem>
+                      <SelectItem value="PAY_CASH">Pay Cash Difference to Party</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

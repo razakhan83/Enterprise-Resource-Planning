@@ -7,6 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -278,27 +285,35 @@ export default function SettingsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-medium text-zinc-700 block mb-1">Default POS Output Format</label>
-                  <select
+                  <Select
                     value={formData.defaultInvoiceFormat}
-                    onChange={(e) => handleChange("defaultInvoiceFormat", e.target.value)}
-                    className="w-full h-9 rounded-md border border-zinc-200 bg-white px-3 py-1 text-xs text-zinc-900 shadow-xs focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                    onValueChange={(val) => handleChange("defaultInvoiceFormat", val)}
                   >
-                    <option value="THERMAL_80MM">Thermal Receipt (80mm / 58mm CSS)</option>
-                    <option value="PDF_A4">Standard A4 Vector PDF Invoice</option>
-                    <option value="PDF_A5">Compact A5 Half-Page Invoice</option>
-                  </select>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Select output format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="THERMAL_80MM">Thermal Receipt (80mm / 58mm CSS)</SelectItem>
+                      <SelectItem value="PDF_A4">Standard A4 Vector PDF Invoice</SelectItem>
+                      <SelectItem value="PDF_A5">Compact A5 Half-Page Invoice</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
                   <label className="text-xs font-medium text-zinc-700 block mb-1">Thermal Receipt Width</label>
-                  <select
+                  <Select
                     value={formData.thermalPaperWidth}
-                    onChange={(e) => handleChange("thermalPaperWidth", e.target.value)}
-                    className="w-full h-9 rounded-md border border-zinc-200 bg-white px-3 py-1 text-xs text-zinc-900 shadow-xs focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                    onValueChange={(val) => handleChange("thermalPaperWidth", val)}
                   >
-                    <option value="80mm">80mm Standard POS Roll (3.15 in)</option>
-                    <option value="58mm">58mm Compact POS Roll (2.28 in)</option>
-                  </select>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Select paper width" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="80mm">80mm Standard POS Roll (3.15 in)</SelectItem>
+                      <SelectItem value="58mm">58mm Compact POS Roll (2.28 in)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -344,18 +359,21 @@ export default function SettingsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-medium text-zinc-700 block mb-1">Default Counter Warehouse</label>
-                  <select
+                  <Select
                     value={formData.defaultWarehouseId}
-                    onChange={(e) => handleChange("defaultWarehouseId", e.target.value)}
-                    className="w-full h-9 rounded-md border border-zinc-200 bg-white px-3 py-1 text-xs text-zinc-900 shadow-xs focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                    onValueChange={(val) => handleChange("defaultWarehouseId", val)}
                   >
-                    <option value="">-- Select Default Warehouse --</option>
-                    {warehouses.map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {w.name}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Select Default Warehouse" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {warehouses.map((w) => (
+                        <SelectItem key={w.id} value={w.id}>
+                          {w.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>

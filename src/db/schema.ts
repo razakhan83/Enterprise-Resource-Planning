@@ -94,6 +94,7 @@ export const salesInvoices = pgTable("sales_invoices", {
   totalAmount: money("total_amount").notNull(),
   discountAmount: money("discount_amount").notNull(), // Kasr / Round-off
   netAmount: money("net_amount").notNull(),
+  paidAmount: money("paid_amount").default("0.00").notNull(),
   biltyNumber: text("bilty_number"),
   transporterName: text("transporter_name"),
   freightTerms: text("freight_terms"), // PAID vs TO-PAY
@@ -101,6 +102,7 @@ export const salesInvoices = pgTable("sales_invoices", {
   isVoided: boolean("is_voided").default(false).notNull(),
   voidedAt: timestamp("voided_at"),
   voidReason: text("void_reason"),
+  adminNotes: text("admin_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -165,6 +167,17 @@ export const operatingExpenses = pgTable("operating_expenses", {
   amount: money("amount").notNull(),
   notes: text("notes"),
   paymentMethod: text("payment_method").notNull(), // CASH | BANK
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const expenses = pgTable("expenses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  category: text("category").notNull(), // 'RENT' | 'ELECTRICITY' | 'SALARIES' | 'MEALS_TEA' | 'TRANSPORT_FREIGHT' | 'MAINTENANCE' | 'OTHER'
+  amount: money("amount").notNull(),
+  paidFrom: text("paid_from").notNull(), // 'CASH' | 'BANK'
+  bankAccountId: uuid("bank_account_id").references(() => bankAccounts.id),
+  description: text("description").notNull(),
+  expenseDate: timestamp("expense_date").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

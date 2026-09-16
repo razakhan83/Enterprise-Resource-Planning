@@ -15,13 +15,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PartyCreateDialog } from "@/components/parties/PartyCreateDialog";
-import { UserPlus, Search } from "lucide-react";
+import { PartyDialog } from "@/components/parties/PartyDialog";
+import { UserPlus, Search, Pencil } from "lucide-react";
 
 export default function PartiesPage() {
   const [parties, setParties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [partyToEdit, setPartyToEdit] = useState<any | null>(null);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<string>("ALL");
 
@@ -65,7 +66,10 @@ export default function PartiesPage() {
                 {parties.length} Accounts
               </Badge>
               <Button
-                onClick={() => setDialogOpen(true)}
+                onClick={() => {
+                  setPartyToEdit(null);
+                  setDialogOpen(true);
+                }}
                 className="h-8 px-3 text-xs bg-zinc-900 hover:bg-zinc-800 text-white font-medium flex items-center space-x-1"
               >
                 <UserPlus className="h-3.5 w-3.5 mr-1" />
@@ -117,12 +121,13 @@ export default function PartiesPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-64">Account Name</TableHead>
+                  <TableHead className="w-60">Account Name</TableHead>
                   <TableHead className="w-28">Classification</TableHead>
                   <TableHead className="w-36">Contact Phone</TableHead>
                   <TableHead>Registered Address</TableHead>
                   <TableHead className="w-32 text-right">Credit Limit</TableHead>
                   <TableHead className="w-36 text-right">Current Balance</TableHead>
+                  <TableHead className="w-20 text-center">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -170,6 +175,20 @@ export default function PartiesPage() {
                           {balNum > 0 ? "Dr" : balNum < 0 ? "Cr" : ""}
                         </span>
                       </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setPartyToEdit(p);
+                            setDialogOpen(true);
+                          }}
+                          className="h-7 px-2 text-xs text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100"
+                        >
+                          <Pencil className="h-3.5 w-3.5 mr-1" />
+                          <span>Edit</span>
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -179,9 +198,10 @@ export default function PartiesPage() {
         </CardContent>
       </Card>
 
-      <PartyCreateDialog
+      <PartyDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+        partyToEdit={partyToEdit}
         onSuccess={() => loadParties()}
       />
     </div>
