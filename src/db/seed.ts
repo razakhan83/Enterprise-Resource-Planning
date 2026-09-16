@@ -7,6 +7,7 @@ import {
   warehouses,
   bankAccounts,
   operatingExpenses,
+  storeSettings,
 } from "./schema";
 import { sql } from "drizzle-orm";
 
@@ -151,6 +152,7 @@ export async function setupSystemAccountsAndSeed() {
       parentUnit: "Carton",
       childUnit: "Piece",
       conversionRate: 24,
+      defaultSaleRate: "350.00",
       isConsignment: false,
     })
     .onConflictDoNothing()
@@ -164,12 +166,39 @@ export async function setupSystemAccountsAndSeed() {
       parentUnit: "Box",
       childUnit: "Piece",
       conversionRate: 10,
+      defaultSaleRate: "850.00",
       isConsignment: false,
     })
     .onConflictDoNothing()
     .returning();
 
-  // 5. Seed some initial operating expenses for Net Profit Statement
+  // 5. Seed store settings
+  await db
+    .insert(storeSettings)
+    .values({
+      id: "default",
+      businessName: "Trading Co.",
+      tagline: "Wholesale & Commercial Supplies",
+      phonePrimary: "+92 300 1234567",
+      phoneSecondary: "+92 321 7654321",
+      email: "info@tradingco.pk",
+      address: "Plot #42, Wholesale Commercial Market, Karachi",
+      ntnNumber: "7482910-4",
+      strnNumber: "32-77-8761-234-91",
+      fbrPosIntegrated: false,
+      defaultInvoiceFormat: "THERMAL_80MM",
+      invoicePrefixEstimate: "EST",
+      invoicePrefixTax: "TAX",
+      thermalPaperWidth: "80mm",
+      thermalPrinterHeader: "TRADING CO. - WHOLESALE MERCHANTS",
+      thermalPrinterFooter: "Exchange within 3 days with bill. No cash refund.",
+      defaultWarehouseId: shopCounter?.id,
+      enableCreditLimitEnforcement: false,
+      roundOffThreshold: "5.00",
+    })
+    .onConflictDoNothing();
+
+  // 6. Seed some initial operating expenses for Net Profit Statement
   const expenses = [
     { category: "Shop & Warehouse Rent", amount: "45000.00", notes: "Monthly warehouse lease", paymentMethod: "BANK" },
     { category: "Commercial Electricity", amount: "18500.00", notes: "Electric power bill", paymentMethod: "BANK" },
@@ -181,7 +210,7 @@ export async function setupSystemAccountsAndSeed() {
     await db.insert(operatingExpenses).values(exp);
   }
 
-  console.log("✓ Seed complete. All Phase 2 foundation data is ready.");
+  console.log("✓ Seed complete. All Phase 2 & Store Settings foundation data is ready.");
   process.exit(0);
 }
 

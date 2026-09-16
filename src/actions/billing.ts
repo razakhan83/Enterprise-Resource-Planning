@@ -8,9 +8,11 @@ import {
   parties,
   ledgerTransactions,
   products,
+  storeSettings,
 } from "@/db/schema";
-import { eq, inArray, sql } from "drizzle-orm";
+import { eq, inArray, sql, desc } from "drizzle-orm";
 import Decimal from "decimal.js";
+import { revalidatePath } from "next/cache";
 
 export type PosItemInput = {
   productId: string;
@@ -72,15 +74,43 @@ export async function getPosInitialData() {
       .from(parties)
       .where(sql`${parties.type} IN ('CUSTOMER', 'DUAL')`);
 
+    // 3. Fetch Store Settings
+    const settings = await db.query.storeSettings.findFirst({
+      where: eq(storeSettings.id, "default"),
+    });
+
+    // 4. Fetch Recent Invoices
+    const recent = await db
+      .select({
+        id: salesInvoices.id,
+        invoiceNo: salesInvoices.invoiceNo,
+        partyName: parties.name,
+        totalAmount: salesInvoices.totalAmount,
+        discountAmount: salesInvoices.discountAmount,
+        netAmount: salesInvoices.netAmount,
+        isPakkaBill: salesInvoices.isPakkaBill,
+        isVoided: salesInvoices.isVoided,
+        voidReason: salesInvoices.voidReason,
+        createdAt: salesInvoices.createdAt,
+      })
+      .from(salesInvoices)
+      .leftJoin(parties, eq(salesInvoices.partyId, parties.id))
+      .orderBy(desc(salesInvoices.createdAt))
+      .limit(15);
+
     return {
       products: productsWithStock,
       parties: partyList,
+      settings,
+      recentInvoices: recent,
     };
   } catch (error: any) {
     console.error("Error fetching POS data:", error);
     return {
       products: [],
       parties: [],
+      settings: null,
+      recentInvoices: [],
       error: error.message,
     };
   }
@@ -204,6 +234,27 @@ export async function createSaleInvoice(
         throw new Error("Discount cannot exceed the total invoice amount.");
       }
 
+      // Check credit limit enforcement if party is specified
+      const currentStoreSettings = await tx.query.storeSettings.findFirst({
+        where: eq(storeSettings.id, "default"),
+      });
+
+      if (partyId && currentStoreSettings?.enableCreditLimitEnforcement) {
+        const partyRecord = await tx.query.parties.findFirst({
+          where: eq(parties.id, partyId),
+        });
+        if (partyRecord && Number(partyRecord.creditLimit) > 0) {
+          const currentBal = new Decimal(partyRecord.currentBalance);
+          const projectedBal = currentBal.plus(netAmount);
+          const limit = new Decimal(partyRecord.creditLimit);
+          if (projectedBal.greaterThan(limit)) {
+            throw new Error(
+              `Credit limit exceeded! Balance would reach Rs. ${projectedBal.toFixed(2)}, which exceeds allowed ceiling of Rs. ${limit.toFixed(2)}.`
+            );
+          }
+        }
+      }
+
       // 4. Create Parent Invoice Record FIRST to satisfy Foreign Key Constraint
       await tx.insert(salesInvoices).values({
         id: invoiceId,
@@ -312,3 +363,183 @@ export async function createSaleInvoice(
     };
   }
 }
+
+export interface VoidInvoiceResult {
+  success: boolean;
+  invoiceNo?: string;
+  error?: string;
+}
+
+export async function voidSaleInvoice(
+  invoiceId: string,
+  reason?: string
+): Promise<VoidInvoiceResult> {
+  try {
+    return await db.transaction(async (tx) => {
+      // 1. Fetch and row-lock the invoice
+      const invRes = await tx.execute(sql`
+        SELECT * FROM ${salesInvoices}
+        WHERE id = ${invoiceId}
+        FOR UPDATE
+      `);
+
+      if (invRes.rows.length === 0) {
+        throw new Error("Invoice not found.");
+      }
+
+      const invoice = invRes.rows[0] as any;
+      if (invoice.is_voided) {
+        throw new Error(`Invoice ${invoice.invoice_no} has already been voided.`);
+      }
+
+      // 2. Fetch sales items to reverse stock
+      const items = await tx.execute(sql`
+        SELECT * FROM ${salesItems}
+        WHERE invoice_id = ${invoiceId}
+      `);
+
+      // 3. Reverse stock deduction back into batches with FOR UPDATE
+      for (const it of items.rows as any[]) {
+        const batchRes = await tx.execute(sql`
+          SELECT id, remaining_qty FROM ${productBatches}
+          WHERE id = ${it.batch_id}
+          FOR UPDATE
+        `);
+
+        if (batchRes.rows.length > 0) {
+          const currentBatch = batchRes.rows[0] as any;
+          await tx
+            .update(productBatches)
+            .set({ remainingQty: Number(currentBatch.remaining_qty) + Number(it.qty_consumed) })
+            .where(eq(productBatches.id, it.batch_id));
+        }
+      }
+
+      // 4. Double-Entry Reversal Postings
+      const sysAccs = await tx.execute(sql`
+        SELECT id, system_role FROM ${parties}
+        WHERE system_role IN ('SYSTEM_CASH', 'SALES_REVENUE', 'KASR_DISCOUNT_EXPENSE')
+      `);
+
+      const sysMap = new Map((sysAccs.rows as any[]).map((r) => [r.system_role, r.id]));
+      const cashAcc = sysMap.get("SYSTEM_CASH");
+      const revenueAcc = sysMap.get("SALES_REVENUE");
+      const kasrAcc = sysMap.get("KASR_DISCOUNT_EXPENSE");
+
+      if (!cashAcc || !revenueAcc || !kasrAcc) {
+        throw new Error("System ledger accounts missing.");
+      }
+
+      const effectivePartyId = invoice.party_id || cashAcc;
+      const netAmount = new Decimal(invoice.net_amount);
+      const discount = new Decimal(invoice.discount_amount);
+      const totalAmount = new Decimal(invoice.total_amount);
+
+      // Reversal Entry 1: Credit Party/Cash (reducing receivable / cash balance)
+      await tx.insert(ledgerTransactions).values({
+        partyId: effectivePartyId,
+        type: "CREDIT_NOTE",
+        referenceId: invoiceId,
+        debit: "0.00",
+        credit: netAmount.toFixed(2),
+        particulars: `Void / Reversal of Invoice ${invoice.invoice_no}: ${reason || "Customer Cancellation"}`,
+      });
+
+      await tx
+        .update(parties)
+        .set({
+          currentBalance: sql`current_balance - ${netAmount.toFixed(2)}`,
+        })
+        .where(eq(parties.id, effectivePartyId));
+
+      // Reversal Entry 2: Credit Kasr Expense (if discount > 0)
+      if (discount.greaterThan(0)) {
+        await tx.insert(ledgerTransactions).values({
+          partyId: kasrAcc,
+          type: "JOURNAL",
+          referenceId: invoiceId,
+          debit: "0.00",
+          credit: discount.toFixed(2),
+          particulars: `Reversal of Kasr on Voided Invoice ${invoice.invoice_no}`,
+        });
+
+        await tx
+          .update(parties)
+          .set({
+            currentBalance: sql`current_balance - ${discount.toFixed(2)}`,
+          })
+          .where(eq(parties.id, kasrAcc));
+      }
+
+      // Reversal Entry 3: Debit Sales Revenue (Gross Amount reversal)
+      await tx.insert(ledgerTransactions).values({
+        partyId: revenueAcc,
+        type: "JOURNAL",
+        referenceId: invoiceId,
+        debit: totalAmount.toFixed(2),
+        credit: "0.00",
+        particulars: `Sales Revenue Nullification on Voided Invoice ${invoice.invoice_no}`,
+      });
+
+      await tx
+        .update(parties)
+        .set({
+          currentBalance: sql`current_balance - ${totalAmount.toFixed(2)}`,
+        })
+        .where(eq(parties.id, revenueAcc));
+
+      // 5. Mark invoice as voided
+      await tx
+        .update(salesInvoices)
+        .set({
+          isVoided: true,
+          voidedAt: new Date(),
+          voidReason: reason || "Voided by operator",
+        })
+        .where(eq(salesInvoices.id, invoiceId));
+
+      revalidatePath("/billing");
+      revalidatePath("/ledgers");
+      revalidatePath("/inventory");
+
+      return {
+        success: true,
+        invoiceNo: invoice.invoice_no,
+      };
+    });
+  } catch (err: any) {
+    console.error("Failed to void invoice:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to void invoice.",
+    };
+  }
+}
+
+export async function getRecentInvoices() {
+  try {
+    const recent = await db
+      .select({
+        id: salesInvoices.id,
+        invoiceNo: salesInvoices.invoiceNo,
+        partyName: parties.name,
+        totalAmount: salesInvoices.totalAmount,
+        discountAmount: salesInvoices.discountAmount,
+        netAmount: salesInvoices.netAmount,
+        isPakkaBill: salesInvoices.isPakkaBill,
+        isVoided: salesInvoices.isVoided,
+        voidReason: salesInvoices.voidReason,
+        createdAt: salesInvoices.createdAt,
+      })
+      .from(salesInvoices)
+      .leftJoin(parties, eq(salesInvoices.partyId, parties.id))
+      .orderBy(desc(salesInvoices.createdAt))
+      .limit(15);
+
+    return { success: true, invoices: recent };
+  } catch (err: any) {
+    console.error("Failed to fetch recent invoices:", err);
+    return { success: false, invoices: [], error: err.message };
+  }
+}
+

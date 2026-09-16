@@ -68,6 +68,7 @@ export default function DashboardLayout({
     { href: "/inventory", label: "Inventory", shortcut: "" },
     { href: "/ledgers", label: "Audit Trail", shortcut: "" },
     { href: "/reports", label: "Analytics", shortcut: "" },
+    { href: "/settings", label: "Settings", shortcut: "" },
   ];
 
   return (

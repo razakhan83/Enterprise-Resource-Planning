@@ -20,6 +20,8 @@ export type ThermalReceiptProps = {
   biltyNumber?: string;
   transporterName?: string;
   freightTerms?: string;
+  paperWidth?: "58mm" | "80mm";
+  settings?: any;
 };
 
 export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
@@ -35,19 +37,33 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
   biltyNumber,
   transporterName,
   freightTerms,
+  paperWidth = "80mm",
+  settings,
 }) => {
   const prevBalNum = Number(previousBalance || 0);
   const totalOutstanding = (prevBalNum + Number(netAmount)).toFixed(2);
 
+  const businessName = settings?.businessName || "TRADING CO.";
+  const headerBanner = settings?.thermalPrinterHeader;
+  const address = settings?.address;
+  const phone = settings?.phonePrimary;
+  const footerTerms = settings?.thermalPrinterFooter || "Exchange within 3 days with bill. No cash refund.";
+
+  const is58 = paperWidth === "58mm" || settings?.thermalPaperWidth === "58mm";
+
   return (
     <div
       id="thermal-receipt"
-      className="bg-white p-3 border border-zinc-300 w-[280px] text-[11px] font-mono leading-tight text-black select-none"
+      className={`bg-white p-3 border border-zinc-300 font-mono leading-tight text-black select-none ${
+        is58 ? "w-[215px] text-[10px]" : "w-[280px] text-[11px]"
+      }`}
     >
       {/* Header */}
       <div className="text-center pb-2 border-b border-black">
-        <div className="text-xs font-bold uppercase tracking-wider">ERP WHOLESALE TRADE</div>
-        <div className="text-[10px] text-zinc-700">Commercial Distribution Network</div>
+        <div className="text-xs font-black uppercase tracking-wider">{businessName}</div>
+        {headerBanner && <div className="text-[10px] font-bold mt-0.5">{headerBanner}</div>}
+        {address && <div className="text-[9px] text-zinc-700 mt-0.5">{address}</div>}
+        {phone && <div className="text-[9px] text-zinc-700">Tel: {phone}</div>}
         <div className="mt-1 font-bold text-[11px]">
           {isPakkaBill ? "LEGAL TAX INVOICE" : "ESTIMATE MEMORANDUM"}
         </div>
@@ -65,7 +81,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
         </div>
         <div className="flex justify-between">
           <span>Party Name:</span>
-          <span className="font-bold truncate max-w-[170px]">{partyName}</span>
+          <span className="font-bold truncate max-w-[150px]">{partyName}</span>
         </div>
         {biltyNumber && (
           <div className="flex justify-between text-[9px] pt-0.5 border-t border-dotted border-zinc-400">
@@ -89,7 +105,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
           {items.map((it, idx) => (
             <tr key={idx}>
               <td className="py-1">
-                <div className="truncate max-w-[110px]">{it.productName}</div>
+                <div className="truncate max-w-[100px] font-medium">{it.productName}</div>
                 <div className="text-[8px] text-zinc-500">{it.unitType}</div>
               </td>
               <td className="py-1 text-center">{it.qty}</td>
@@ -117,7 +133,7 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
           <span>{formatCurrency(netAmount)}</span>
         </div>
 
-        {/* Previous Balance Carry-Forward (Wholesale Essential) */}
+        {/* Previous Balance Carry-Forward */}
         {prevBalNum > 0 && (
           <div className="pt-1 border-t border-dotted border-zinc-400 space-y-0.5 text-[9px]">
             <div className="flex justify-between text-zinc-600">
@@ -134,8 +150,8 @@ export const ThermalReceipt: React.FC<ThermalReceiptProps> = ({
 
       {/* Footer */}
       <div className="text-center pt-2 mt-2 border-t border-black text-[9px] text-zinc-600 space-y-0.5">
-        <div>Goods once dispatched cannot be returned.</div>
-        <div>Software: ERP Pure CSS 80mm Print Engine</div>
+        <div>{footerTerms}</div>
+        <div className="text-[8px] text-zinc-400">Pure CSS {is58 ? "58mm" : "80mm"} Print Engine</div>
       </div>
     </div>
   );

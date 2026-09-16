@@ -118,6 +118,12 @@ export async function transferStockBetweenWarehouses(params: {
   }
 }
 
+export interface StockWastageResult {
+  success: boolean;
+  lossValue?: string;
+  error?: string;
+}
+
 /**
  * Stock Wastage / Damage Adjustment booked directly to operational loss
  */
@@ -125,7 +131,7 @@ export async function adjustStockWastage(params: {
   batchId: string;
   qtyDamaged: number;
   reason: string;
-}) {
+}): Promise<StockWastageResult> {
   const { batchId, qtyDamaged, reason } = params;
 
   if (qtyDamaged <= 0) {
@@ -213,3 +219,116 @@ export async function adjustStockWastage(params: {
     return { success: false, error: err.message || "Failed to adjust stock wastage." };
   }
 }
+
+export interface CreateProductParams {
+  name: string;
+  sku?: string;
+  parentUnit: string;
+  childUnit: string;
+  conversionRate: number;
+  defaultSaleRate: string;
+  isConsignment?: boolean;
+}
+
+export interface CreateProductResult {
+  success: boolean;
+  product?: any;
+  error?: string;
+}
+
+export async function createProduct(params: CreateProductParams): Promise<CreateProductResult> {
+  const {
+    name,
+    sku,
+    parentUnit,
+    childUnit,
+    conversionRate,
+    defaultSaleRate,
+    isConsignment = false,
+  } = params;
+
+  if (!name || name.trim().length === 0) {
+    return { success: false, error: "Product name is required." };
+  }
+  if (!parentUnit || !childUnit) {
+    return { success: false, error: "Both Parent Unit and Child Unit are required." };
+  }
+  if (!conversionRate || conversionRate <= 0) {
+    return { success: false, error: "Conversion rate must be at least 1." };
+  }
+
+  const rateDecimal = new Decimal(defaultSaleRate || 0);
+  if (rateDecimal.lessThan(0)) {
+    return { success: false, error: "Default selling rate cannot be negative." };
+  }
+
+  try {
+    const [newProduct] = await db
+      .insert(products)
+      .values({
+        name: name.trim(),
+        sku: sku?.trim() || null,
+        parentUnit: parentUnit.trim(),
+        childUnit: childUnit.trim(),
+        conversionRate,
+        defaultSaleRate: rateDecimal.toFixed(2),
+        isConsignment,
+      })
+      .returning();
+
+    return { success: true, product: newProduct };
+  } catch (err: any) {
+    console.error("Failed to create product:", err);
+    return { success: false, error: err.message || "Failed to create product" };
+  }
+}
+
+export async function getInventoryMasterData() {
+  try {
+    const allProducts = await db.select().from(products).orderBy(products.name);
+    const activeBatches = await db
+      .select({
+        id: productBatches.id,
+        productId: productBatches.productId,
+        productName: products.name,
+        supplierName: parties.name,
+        receivedDate: productBatches.receivedDate,
+        originalQty: productBatches.originalQty,
+        remainingQty: productBatches.remainingQty,
+        landedCost: productBatches.landedCost,
+        childUnit: products.childUnit,
+      })
+      .from(productBatches)
+      .innerJoin(products, eq(productBatches.productId, products.id))
+      .innerJoin(parties, eq(productBatches.supplierId, parties.id))
+      .orderBy(sql`${productBatches.receivedDate} DESC`);
+
+    // Aggregate stock by product
+    const stockMap = new Map<string, number>();
+    for (const b of activeBatches) {
+      stockMap.set(b.productId, (stockMap.get(b.productId) || 0) + b.remainingQty);
+    }
+
+    const productsWithStock = allProducts.map((p) => {
+      const childStock = stockMap.get(p.id) || 0;
+      const parentStock = p.conversionRate > 0 ? Math.floor(childStock / p.conversionRate) : 0;
+      const looseChild = p.conversionRate > 0 ? childStock % p.conversionRate : childStock;
+      return {
+        ...p,
+        totalChildStock: childStock,
+        totalParentStock: parentStock,
+        looseChildStock: looseChild,
+      };
+    });
+
+    return {
+      success: true,
+      products: productsWithStock,
+      batches: activeBatches,
+    };
+  } catch (err: any) {
+    console.error("Failed to get inventory master data:", err);
+    return { success: false, products: [], batches: [], error: err.message };
+  }
+}
+

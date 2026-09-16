@@ -20,6 +20,7 @@ export type PartyOption = {
   type: string;
   phone: string | null;
   address: string | null;
+  creditLimit?: string;
   currentBalance: string;
 };
 
@@ -30,6 +31,7 @@ export type ProductOption = {
   parentUnit: string;
   childUnit: string;
   conversionRate: number;
+  defaultSaleRate?: string;
   stockChildUnits: number;
   stockParentUnits: number;
 };
@@ -37,6 +39,9 @@ export type ProductOption = {
 export type CompletedReceiptData = {
   invoiceNo: string;
   partyName: string;
+  partyPhone?: string | null;
+  partyAddress?: string | null;
+  previousBalance?: string;
   date: string;
   isPakkaBill: boolean;
   items: PosCartItem[];
